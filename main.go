@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,6 +12,39 @@ import (
 	"xi2.org/x/xz"
 )
 
+type Root struct {
+	OMeS OMeS
+}
+
+type OMeS struct {
+	PMSetup []PMSetup
+}
+
+type PMSetup struct {
+	Interval   string `json:"-interval"`
+	StartTime  string `json:"-startTime"`
+	PMMOResult PMMOResult
+}
+
+type PMMOResult struct {
+	MO     MO
+	NEWBTS NEWBTS
+}
+
+type MO struct {
+	BbaseID   string `json:"baseId"`
+	LocalMoID string `json:"localMoid"`
+}
+
+type NEWBTS struct {
+	MeasurementType string `json:"-measurementType"`
+	Counter         []Counter
+}
+
+type Counter struct {
+	Val string `json:",chardata"`
+}
+
 func check(err error) {
 	if err != nil {
 		panic(err)
@@ -17,20 +52,24 @@ func check(err error) {
 }
 
 func main() {
-	jsonData, err := getJSONData()
+	getJSONData()
+
+}
+
+func parseJSON(j string) {
+	root := Root{}
+	err := json.Unmarshal([]byte(j), &root)
 	check(err)
-	parseJSON(jsonData)
+	fmt.Printf("%v", root.OMeS.PMSetup[0])
 }
 
-func parseJSON(j *bytes.Buffer) {
-	// TODO lets get tagging!
-}
-
-func getJSONData() (*bytes.Buffer, error) {
+func getJSONData() {
 	file, err := os.Open(getCounterFile())
 	check(err)
 	defer file.Close()
-	return xj.Convert(file)
+	json, err := xj.Convert(file)
+	check(err)
+	parseJSON(json.String())
 }
 
 func getCounterFile() string {
