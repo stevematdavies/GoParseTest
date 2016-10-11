@@ -32,7 +32,7 @@ type PMMOResult struct {
 }
 
 type MO struct {
-	BbaseID   string `json:"baseId"`
+	BaseID    string `json:"baseId"`
 	LocalMoID string `json:"localMoid"`
 }
 
@@ -42,8 +42,37 @@ func check(err error) {
 	}
 }
 
+type Counter struct {
+	StartTime       string
+	BaseID          string
+	MeasurementType string
+	WbitCounts      map[string]interface{}
+}
+
 func main() {
 	getJSONData()
+
+}
+
+func initCounter(r Root) {
+	head := r.OMeS.PMSetup[0]
+	//for i := 0; i < len(head); i++ {
+	c := Counter{}
+	h := head
+	mesT := "-measurementType"
+	c.StartTime = "Start Time: " + h.StartTime
+	c.BaseID = "BaseID: " + h.PMMOResult.MO.BaseID
+	ctrMap := h.PMMOResult.NEWBTS.(map[string]interface{})
+	var mt = ctrMap[mesT].(string)
+	c.MeasurementType = "Measurement Type: " + mt
+	c.WbitCounts = make(map[string]interface{})
+	for k, v := range ctrMap {
+		if k != mesT {
+			c.WbitCounts[k] = v.(string)
+		}
+	}
+
+	fmt.Println(c)
 
 }
 
@@ -51,7 +80,7 @@ func parseJSON(j string) {
 	root := Root{}
 	err := json.Unmarshal([]byte(j), &root)
 	check(err)
-	fmt.Printf("%v", root.OMeS.PMSetup[0].PMMOResult.NEWBTS)
+	initCounter(root)
 }
 
 func getJSONData() {
