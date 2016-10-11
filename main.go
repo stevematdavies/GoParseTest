@@ -21,28 +21,19 @@ type OMeS struct {
 }
 
 type PMSetup struct {
-	Interval   string `json:"-interval"`
-	StartTime  string `json:"-startTime"`
-	PMMOResult PMMOResult
+	Interval   string     `json:"-interval"`
+	StartTime  string     `json:"-startTime"`
+	PMMOResult PMMOResult `json:"PMMOResult"`
 }
 
 type PMMOResult struct {
 	MO     MO
-	NEWBTS NEWBTS
+	NEWBTS interface{} `json:"NE-WBTS_1.0"`
 }
 
 type MO struct {
 	BbaseID   string `json:"baseId"`
 	LocalMoID string `json:"localMoid"`
-}
-
-type NEWBTS struct {
-	MeasurementType string `json:"-measurementType"`
-	Counter         []Counter
-}
-
-type Counter struct {
-	Val string `json:",chardata"`
 }
 
 func check(err error) {
@@ -60,7 +51,7 @@ func parseJSON(j string) {
 	root := Root{}
 	err := json.Unmarshal([]byte(j), &root)
 	check(err)
-	fmt.Printf("%v", root.OMeS.PMSetup[0])
+	fmt.Printf("%v", root.OMeS.PMSetup[0].PMMOResult.NEWBTS)
 }
 
 func getJSONData() {
