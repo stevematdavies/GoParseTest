@@ -55,25 +55,24 @@ func main() {
 }
 
 func initCounter(r Root) {
-	head := r.OMeS.PMSetup[0]
-	//for i := 0; i < len(head); i++ {
-	c := Counter{}
-	h := head
-	mesT := "-measurementType"
-	c.StartTime = "Start Time: " + h.StartTime
-	c.BaseID = "BaseID: " + h.PMMOResult.MO.BaseID
-	ctrMap := h.PMMOResult.NEWBTS.(map[string]interface{})
-	var mt = ctrMap[mesT].(string)
-	c.MeasurementType = "Measurement Type: " + mt
-	c.WbitCounts = make(map[string]interface{})
-	for k, v := range ctrMap {
-		if k != mesT {
-			c.WbitCounts[k] = v.(string)
+	head := r.OMeS.PMSetup
+	for i := 0; i < len(head); i++ {
+		c := Counter{}
+		h := head[i]
+		mesT := "-measurementType"
+		c.StartTime = "Start Time: " + h.StartTime
+		c.BaseID = "BaseID: " + h.PMMOResult.MO.BaseID
+		ctrMap := h.PMMOResult.NEWBTS.(map[string]interface{})
+		var mt = ctrMap[mesT].(string)
+		c.MeasurementType = "Measurement Type: " + mt
+		c.WbitCounts = make(map[string]interface{})
+		for k, v := range ctrMap {
+			if k != mesT {
+				c.WbitCounts[k] = v.(string)
+			}
 		}
+		fmt.Printf("%v\n%v\n%v\n%v\n\n", c.StartTime, c.BaseID, c.MeasurementType, c.WbitCounts)
 	}
-
-	fmt.Println(c)
-
 }
 
 func parseJSON(j string) {
