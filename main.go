@@ -2,15 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"xi2.org/x/xz"
 )
 
-type OMeS struct {
+type Root struct {
 	XMLName xml.Name  `xml:"OMeS"`
 	PMSetup []PMSetup `xml:"PMSetup"`
 }
@@ -45,12 +47,6 @@ type MO struct {
 	LocalMoID string   `xml:"localMoid"`
 }
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 type Counter struct {
 	StartTime       string
 	BaseID          string
@@ -58,22 +54,30 @@ type Counter struct {
 	WbitCounts      map[string]string
 }
 
+/* ************************************************************************************************ */
+
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
-	getData()
-
+	data := getCountersData()
+	fmt.Println(data)
 }
 
-type DeviceCounterTag struct {
-	Name  string
-	Value string
-}
+func conStruct(r Root) []Counter {
 
-func construct(r OMeS) {
 	pmSetups := r.PMSetup
+
+	var ctrscol []Counter
+
 	for i := 0; i < len(pmSetups); i++ {
 		ctr := Counter{}
 		ps := pmSetups[i]
 		ctrArr := ps.PMMOResult.NEWBTS.Counters
+		ctrMap := make(map[string]string)
 		ctr.StartTime = ps.StartTime
 		ctr.BaseID = ps.PMMOResult.MO.BaseID
 		ctr.MeasurementType = ps.PMMOResult.NEWBTS.MeasurementType
@@ -82,34 +86,32 @@ func construct(r OMeS) {
 			dctr := ctrArr[j]
 			dcName := dctr.XMLName.Local
 			dcContent := dctr.Content
-
-			fmt.Printf("%s  :  %s\n", dcName, dcContent)
-
+			ctrMap[dcName] = dcContent
 		}
 
+		ctr.WbitCounts = ctrMap
+		ctrscol = append(ctrscol, ctr)
 	}
-
+	return ctrscol
 }
 
-func parseData(f []byte) {
-	root := OMeS{}
+func xmlify(f []byte) []Counter {
+	root := Root{}
 	err := xml.Unmarshal(f, &root)
 	check(err)
-	fmt.Println(root)
-	construct(root)
+	return conStruct(root)
 }
 
-func getData() {
-	xml, err := ioutil.ReadFile(getCounterFile())
+func getCountersData() []string {
+	byts, err := ioutil.ReadFile(path())
 	check(err)
-	parseData(xml)
+	return jsonFromXML(xmlify(byts))
 }
 
-func getCounterFile() string {
+func path() string {
 	pmFile := "/tmp/stats/pm.counter.xml"
 	m, err := filepath.Glob("/tmp/stats/*.raw.xz")
 	check(err)
-
 	if len(m) > 0 {
 		data, err := ioutil.ReadFile(m[0])
 		check(err)
@@ -123,4 +125,21 @@ func getCounterFile() string {
 		return pmFile
 	}
 	return ""
+}
+
+func jsonFromXML(countersArray []Counter) []string {
+	var JSONCounterArray []string
+	for i := 0; i < len(countersArray); i++ {
+		c := countersArray[i]
+		jsn, err := json.Marshal(c)
+		check(err)
+		JSONCounterArray = append(JSONCounterArray, string(jsn)+",")
+	}
+	return stripArrayTrailingComma(JSONCounterArray)
+}
+
+func stripArrayTrailingComma(arr []string) []string {
+	i := len(arr) - 1
+	arr[i] = strings.TrimSuffix(arr[i], ",")
+	return arr
 }
