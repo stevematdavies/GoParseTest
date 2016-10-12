@@ -2,38 +2,47 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
-	xj "github.com/basgys/goxml2json"
 	"xi2.org/x/xz"
 )
 
-type Root struct {
-	OMeS OMeS
-}
-
 type OMeS struct {
-	PMSetup []PMSetup
+	XMLName xml.Name  `xml:"OMeS"`
+	PMSetup []PMSetup `xml:"PMSetup"`
 }
 
 type PMSetup struct {
-	Interval   string     `json:"-interval"`
-	StartTime  string     `json:"-startTime"`
-	PMMOResult PMMOResult `json:"PMMOResult"`
+	XMLName    xml.Name   `xml:"PMSetup"`
+	Interval   string     `xml:"interval,attr"`
+	StartTime  string     `xml:"startTime,attr"`
+	PMMOResult PMMOResult `xml:"PMMOResult"`
 }
 
 type PMMOResult struct {
-	MO     MO
-	NEWBTS interface{} `json:"NE-WBTS_1.0"`
+	XMLName xml.Name `xml:"PMMOResult"`
+	MO      MO
+	NEWBTS  NEWBTS `xml:"NE-WBTS_1.0"`
+}
+
+type NEWBTS struct {
+	XMLName         string          `xml:"NE-WBTS_1.0"`
+	MeasurementType string          `xml:"measurementType,attr"`
+	Counters        []DeviceCounter `xml:",any"`
+}
+
+type DeviceCounter struct {
+	XMLName xml.Name
+	Content string `xml:",innerxml"`
 }
 
 type MO struct {
-	BaseID    string `json:"baseId"`
-	LocalMoID string `json:"localMoid"`
+	XMLName   xml.Name `xml:"MO"`
+	BaseID    string   `xml:"baseId"`
+	LocalMoID string   `xml:"localMoid"`
 }
 
 func check(err error) {
@@ -46,49 +55,54 @@ type Counter struct {
 	StartTime       string
 	BaseID          string
 	MeasurementType string
-	WbitCounts      map[string]interface{}
+	WbitCounts      map[string]string
 }
 
 func main() {
-	getJSONData()
+	getData()
 
 }
 
-func initCounter(r Root) {
-	head := r.OMeS.PMSetup
-	for i := 0; i < len(head); i++ {
-		c := Counter{}
-		h := head[i]
-		mesT := "-measurementType"
-		c.StartTime = "Start Time: " + h.StartTime
-		c.BaseID = "BaseID: " + h.PMMOResult.MO.BaseID
-		ctrMap := h.PMMOResult.NEWBTS.(map[string]interface{})
-		var mt = ctrMap[mesT].(string)
-		c.MeasurementType = "Measurement Type: " + mt
-		c.WbitCounts = make(map[string]interface{})
-		for k, v := range ctrMap {
-			if k != mesT {
-				c.WbitCounts[k] = v.(string)
-			}
+type DeviceCounterTag struct {
+	Name  string
+	Value string
+}
+
+func construct(r OMeS) {
+	pmSetups := r.PMSetup
+	for i := 0; i < len(pmSetups); i++ {
+		ctr := Counter{}
+		ps := pmSetups[i]
+		ctrArr := ps.PMMOResult.NEWBTS.Counters
+		ctr.StartTime = ps.StartTime
+		ctr.BaseID = ps.PMMOResult.MO.BaseID
+		ctr.MeasurementType = ps.PMMOResult.NEWBTS.MeasurementType
+
+		for j := 0; j < len(ctrArr); j++ {
+			dctr := ctrArr[j]
+			dcName := dctr.XMLName.Local
+			dcContent := dctr.Content
+
+			fmt.Printf("%s  :  %s\n", dcName, dcContent)
+
 		}
-		fmt.Printf("%v\n%v\n%v\n%v\n\n", c.StartTime, c.BaseID, c.MeasurementType, c.WbitCounts)
+
 	}
+
 }
 
-func parseJSON(j string) {
-	root := Root{}
-	err := json.Unmarshal([]byte(j), &root)
+func parseData(f []byte) {
+	root := OMeS{}
+	err := xml.Unmarshal(f, &root)
 	check(err)
-	initCounter(root)
+	fmt.Println(root)
+	construct(root)
 }
 
-func getJSONData() {
-	file, err := os.Open(getCounterFile())
+func getData() {
+	xml, err := ioutil.ReadFile(getCounterFile())
 	check(err)
-	defer file.Close()
-	json, err := xj.Convert(file)
-	check(err)
-	parseJSON(json.String())
+	parseData(xml)
 }
 
 func getCounterFile() string {
