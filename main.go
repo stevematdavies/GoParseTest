@@ -57,6 +57,7 @@ type Measurement struct {
 type Counter struct {
 	StartTime       string
 	BaseID          string
+	MeasurementID   string
 	MeasurementType string
 	Measurements    map[string]string
 }
@@ -68,9 +69,10 @@ func check(err error) {
 }
 
 func main() {
+	counterMap := make(map[string][]string)
 	data := getCountersData()
+	counterMap["PmCounter"] = data
 	fmt.Println(data)
-	// TODO send data!
 }
 
 func conStruct(rootElement Root) []Counter {
@@ -85,6 +87,7 @@ func conStruct(rootElement Root) []Counter {
 		measurementsMap := make(map[string]string)
 		counter.StartTime = pmSetup.StartTime
 		counter.BaseID = pmSetup.MeasurementOutputResult.MeasurementOutput.BaseID
+		counter.MeasurementID = pmSetup.MeasurementOutputResult.MeasurementOutput.LocalMoID
 		counter.MeasurementType = pmSetup.MeasurementOutputResult.MeasurementList.Type
 
 		for j := 0; j < len(measurements); j++ {
