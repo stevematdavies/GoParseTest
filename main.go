@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+
+	pmc "./pmcounter"
 )
 
 func main() {
-	FZMPerformacCounters := GetCounters()
-	slice := FZMPerformacCounters[0:4]
-	fmt.Println(slice)
+	PMCounters := pmc.GetPMCountersForDevice("1234")
+	fmt.Println(PMCounters[0])
 }
