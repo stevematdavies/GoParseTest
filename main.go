@@ -6,5 +6,6 @@ import (
 
 func main() {
 	FZMPerformacCounters := GetCounters()
-	fmt.Println(FZMPerformacCounters[0])
+	slice := FZMPerformacCounters[0:4]
+	fmt.Println(slice)
 }
