@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	PMCounters := pmc.GetPMCountersForDevice("1234")
-	fmt.Println(PMCounters[0])
+	PMCounters := pmc.GetPMCounters()
+	fmt.Println(PMCounters)
 }

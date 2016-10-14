@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -14,57 +13,37 @@ import (
 
 // Root ..
 type Root struct {
-	XMLName xml.Name  `xml:"OMeS"`
-	PMSetup []PMSetup `xml:"PMSetup"`
+	XMLName        xml.Name        `xml:"OMeS"`
+	ParentElements []ParentElement `xml:"PMSetup"`
 }
 
-// PMSetup ...
-type PMSetup struct {
-	XMLName                 xml.Name                `xml:"PMSetup"`
-	Interval                string                  `xml:"interval,attr"`
-	StartTime               string                  `xml:"startTime,attr"`
-	MeasurementOutputResult MeasurementOutputResult `xml:"PMMOResult"`
+// ParentElement ...
+type ParentElement struct {
+	XMLName             xml.Name            `xml:"PMSetup"`
+	ParentElementResult ParentElementResult `xml:"PMMOResult"`
 }
 
-// MeasurementOutputResult ...
-type MeasurementOutputResult struct {
-	XMLName           xml.Name `xml:"PMMOResult"`
-	MeasurementOutput MeasurementOutput
-	MeasurementList   MeasurementList `xml:"NE-WBTS_1.0"`
+// ParentElementResult ...
+type ParentElementResult struct {
+	XMLName           xml.Name          `xml:"PMMOResult"`
+	DeviceCounterList DeviceCounterList `xml:"NE-WBTS_1.0"`
 }
 
-// MeasurementOutput ...
-type MeasurementOutput struct {
-	XMLName   xml.Name `xml:"MO"`
-	BaseID    string   `xml:"baseId"`
-	LocalMoID string   `xml:"localMoid"`
+// DeviceCounterList ...
+type DeviceCounterList struct {
+	DeviceCounterArray []DeviceCounter `xml:",any"`
 }
 
-// MeasurementList ...
-type MeasurementList struct {
-	XMLName      string        `xml:"NE-WBTS_1.0"`
-	Type         string        `xml:"measurementType,attr"`
-	Measurements []Measurement `xml:",any"`
-}
-
-// Measurement ...
-type Measurement struct {
+// DeviceCounter ...
+type DeviceCounter struct {
 	XMLName xml.Name
 	Content string `xml:",innerxml"`
 }
 
-type CounterMeasurement struct {
-	CounterID string
-	Value     string
-}
-
-// Counter - Represents an entire Counter Object
-type Counter struct {
-	CountTime       string
-	DeviceID        string
-	Device          string
-	MeasurementType string
-	Counters        []CounterMeasurement
+// DeviceCounterJSON ...
+type DeviceCounterJSON struct {
+	Name    string
+	Content string
 }
 
 func check(err error) {
@@ -73,67 +52,27 @@ func check(err error) {
 	}
 }
 
-var kuhaID string
-
-// GetPMCountersForDevice start here for FZM PM COounters
-func GetPMCountersForDevice(kid string) []string {
-	kuhaID = kid
+// GetPMCounters start here for FZM PM COounters
+func GetPMCounters() []string {
 	return getCountersData()
 }
 
-/*
-* Temp list of required Measurement Types for GetCounters
-* This will eventually be removed and the types
-* will be filtered in the FZM before being parsed
- */
-func typeInFilterList(mt string) bool {
-	switch mt {
-	case
-		"LTE_Cell_Avail",
-		"LTE_SINR",
-		"LTE_RRC",
-		"LTE_Cell_Throughput",
-		"LTE_Cell_Load":
-		return true
-	}
-	return false
-}
-
-func conStruct(rootElement Root) []Counter {
-
-	pmSetupArray := rootElement.PMSetup
-	var countersList []Counter
-
-	for i := 0; i < len(pmSetupArray); i++ {
-		counter := Counter{}
-		pmSetup := pmSetupArray[i]
-		measurements := pmSetup.MeasurementOutputResult.MeasurementList.Measurements
-		counter.CountTime = pmSetup.StartTime
-		counter.DeviceID = kuhaID
-		counter.Device = pmSetup.MeasurementOutputResult.MeasurementOutput.LocalMoID
-		counter.MeasurementType = pmSetup.MeasurementOutputResult.MeasurementList.Type
-		measurementsArray := make([]CounterMeasurement, len(measurements))
-
-		for j := 0; j < len(measurements); j++ {
-			measurement := measurements[j]
-			counterMeasurement := CounterMeasurement{}
-			counterMeasurement.CounterID = measurement.XMLName.Local
-			counterMeasurement.Value = measurement.Content
-			measurementsArray[j] = counterMeasurement
-
-		}
-
-		counter.Counters = measurementsArray
-
-		if typeInFilterList(counter.MeasurementType) {
-			countersList = append(countersList, counter)
-			fmt.Println(counter.MeasurementType)
+func conStruct(rootElement Root) []DeviceCounterJSON {
+	parentElements := rootElement.ParentElements
+	var deviceCountersList []DeviceCounterJSON
+	for i := 0; i < len(parentElements); i++ {
+		pmCounters := parentElements[i].ParentElementResult.DeviceCounterList.DeviceCounterArray
+		for j := 0; j < len(pmCounters); j++ {
+			dcj := DeviceCounterJSON{}
+			dcj.Name = pmCounters[j].XMLName.Local
+			dcj.Content = pmCounters[j].Content
+			deviceCountersList = append(deviceCountersList, dcj)
 		}
 	}
-	return countersList
+	return deviceCountersList
 }
 
-func xmlify(byts []byte) []Counter {
+func xmlify(byts []byte) []DeviceCounterJSON {
 	root := Root{}
 	err := xml.Unmarshal(byts, &root)
 	check(err)
@@ -165,7 +104,7 @@ func path() string {
 	return ""
 }
 
-func jsonFromXML(countersArray []Counter) []string {
+func jsonFromXML(countersArray []DeviceCounterJSON) []string {
 	var JSONCounterArray []string
 	for i := 0; i < len(countersArray); i++ {
 		counter := countersArray[i]
